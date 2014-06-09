@@ -44,5 +44,5 @@ clean:
 	rm -f *.o *.a *.x *.linkinfo miniFE_info.hpp
 
 realclean: clean
-	rm -f gmon.out gprof.* *~ *.yaml *.TVD.* *.mtx* *.vec* minife_debug*
+	rm -f gmon.out gprof.* *~ *.yaml *.TVD.* *.mtx* *.vec* minife_debug* *vti *vtu *vtp
 
