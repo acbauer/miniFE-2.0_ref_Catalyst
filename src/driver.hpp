@@ -278,14 +278,14 @@ driver(const Box& global_box, Box& my_box,
   if (matvec_with_comm_overlap) {
 #ifdef MINIFE_CSR_MATRIX
     rearrange_matrix_local_external(A);
-    cg_solve(A, b, x, matvec_overlap<MatrixType,VectorType>(), max_iters, tol,
+    cg_solve(mesh, A, b, x, matvec_overlap<MatrixType,VectorType>(), max_iters, tol,
            num_iters, rnorm, cg_times);
 #else
     std::cout << "ERROR, matvec with overlapping comm/comp only works with CSR matrix."<<std::endl;
 #endif
   }
   else {
-    cg_solve(A, b, x, matvec_std<MatrixType,VectorType>(), max_iters, tol,
+    cg_solve(mesh, A, b, x, matvec_std<MatrixType,VectorType>(), max_iters, tol,
            num_iters, rnorm, cg_times);
     if (myproc == 0) {
       std::cout << "Final Resid Norm: " << rnorm << std::endl;

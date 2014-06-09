@@ -36,6 +36,12 @@
 
 #include <outstream.hpp>
 
+#include <simple_mesh_description.hpp>
+
+#ifdef USE_CATALYST
+#include <catalyst_adapter.hpp>
+#endif
+
 namespace miniFE {
 
 template<typename Scalar>
@@ -66,11 +72,13 @@ bool breakdown(typename VectorType::ScalarType inner,
   return std::abs(inner) <= 100*vnorm*wnorm*std::numeric_limits<magnitude>::epsilon();
 }
 
-template<typename OperatorType,
+template<typename GlobalOrdinal,
+         typename OperatorType,
          typename VectorType,
          typename Matvec>
 void
-cg_solve(OperatorType& A,
+cg_solve(simple_mesh_description<GlobalOrdinal>& mesh,
+         OperatorType& A,
          const VectorType& b,
          VectorType& x,
          Matvec matvec,
@@ -183,6 +191,31 @@ cg_solve(OperatorType& A,
     os << "iter " << k << ", p_ap_dot = " << p_ap_dot;
     os.flush();
 #endif
+
+#ifdef USE_CATALYST
+#if MINIFE_SCALAR == double
+    double spacing[3] = {1./mesh.global_box[0][1],
+                         1./mesh.global_box[1][1],
+                         1./mesh.global_box[2][1]};
+    // theoretically we wouldn't want to exchange the external dofs here
+    // since we may not actually do any co-processing this iteration
+    // as this would then be wasted communication. realistically it's
+    // much easier to do here though.
+    VectorType x_with_externals(0, ncols);
+    waxpby(one, x, zero, x, x_with_externals);
+    exchange_externals(A, x_with_externals);
+    // if we're at the last iteration we definitely want to see what
+    // the solution is looking like
+    Catalyst::coprocess(spacing, mesh.global_box, mesh.local_box, x.coefs,
+                        k, static_cast<double>(k), k==max_iter);
+#else
+    if (myproc == 0) {
+      std::cout << "Catalyst only supported for doubles " << std::endl;
+    }
+#endif
+#endif
+
+
     if (p_ap_dot < brkdown_tol) {
       if (p_ap_dot < 0 || breakdown(p_ap_dot, Ap, p)) {
         std::cerr << "miniFE::cg_solve ERROR, numerical breakdown!"<<std::endl;

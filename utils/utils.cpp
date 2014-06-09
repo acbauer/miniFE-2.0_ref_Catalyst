@@ -79,6 +79,16 @@ void get_parameters(int argc, char** argv, Parameters& params)
   params.num_devices = Mantevo::parse_parameter<int>(argstring, "num_devices", 2);
   params.skip_device = Mantevo::parse_parameter<int>(argstring, "skip_device", 9999);
   params.numa = Mantevo::parse_parameter<int>(argstring, "numa", 1);
+#ifdef USE_CATALYST
+  std::string names = Mantevo::parse_parameter<std::string>(argstring, "script_names","");
+  const char* myString = names.c_str();
+  const char *p = strtok(const_cast<char*>(myString), ";");
+  while (p) {
+    printf ("Token: %s\n", p);
+    params.script_names.push_back(p);
+    p = strtok(NULL, ";");
+  }
+#endif
 }
 
 //-------------------------------------------------------------

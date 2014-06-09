@@ -29,6 +29,9 @@
 #define _parameters_hpp_
 
 #include <string>
+#ifdef USE_CATALYST
+#include <vector>
+#endif
 
 namespace miniFE {
 
@@ -56,6 +59,9 @@ struct Parameters {
   int num_devices;
   int skip_device;
   int numa;
+#ifdef USE_CATALYST
+  std::vector<std::string> script_names;
+#endif
 };//struct Parameters
 
 }//namespace miniFE

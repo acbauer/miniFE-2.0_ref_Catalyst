@@ -58,6 +58,10 @@
 #include <miniFE_no_info.hpp>
 #endif
 
+#ifdef USE_CATALYST
+#include <catalyst_adapter.hpp>
+#endif
+
 //The following macros should be specified as compile-macros in the
 //makefile. They are defaulted here just in case...
 #ifndef MINIFE_SCALAR
@@ -97,6 +101,10 @@ int main(int argc, char** argv) {
 #endif
 
   miniFE::timer_type start_time = miniFE::mytimer();
+
+#ifdef USE_CATALYST
+  Catalyst::initialize(params);
+#endif
 
 #ifdef MINIFE_DEBUG
   outstream(numprocs, myproc);
@@ -181,6 +189,10 @@ int main(int argc, char** argv) {
     doc.add("Total Program Time",total_time);
     doc.generateYAML();
   }
+
+#ifdef USE_CATALYST
+  Catalyst::finalize();
+#endif
 
   miniFE::finalize_mpi();
 

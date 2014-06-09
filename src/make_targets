@@ -12,6 +12,9 @@ UTIL_OBJS = \
 MAIN_OBJ = \
 	main.o
 
+LIBS = \
+        ../adapter_build/libCatalystMiniFERefAdaptor.so -Wl,-rpath,../adapter_build/ -Wl,-rpath-link,../adapter_build/
+
 MINIFE_INFO = 1
 MINIFE_KERNELS = 0
 

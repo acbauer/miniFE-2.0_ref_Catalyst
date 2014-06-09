@@ -1,0 +1,8 @@
+# ParaView file formats
+*vti
+*vtu
+*vtp
+*.yaml
+adapter_build/*
+miniFE.x
+miniFE_info.hpp
