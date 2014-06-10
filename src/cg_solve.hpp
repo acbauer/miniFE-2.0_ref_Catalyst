@@ -200,7 +200,8 @@ cg_solve(simple_mesh_description<GlobalOrdinal>& mesh,
     // if we're at the last iteration we definitely want to see what
     // the solution is looking like.
     Catalyst::coprocess(spacing, mesh.global_box, mesh.local_box, x.coefs,
-                        k, static_cast<double>(k), k==max_iter);
+                        k, static_cast<double>(k),
+                        k==max_iter || normr <= tolerance);
 #else
     if (myproc == 0) {
       std::cout << "Catalyst only supported for doubles " << std::endl;
