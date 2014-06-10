@@ -197,15 +197,8 @@ cg_solve(simple_mesh_description<GlobalOrdinal>& mesh,
     double spacing[3] = {1./mesh.global_box[0][1],
                          1./mesh.global_box[1][1],
                          1./mesh.global_box[2][1]};
-    // theoretically we wouldn't want to exchange the external dofs here
-    // since we may not actually do any co-processing this iteration
-    // as this would then be wasted communication. realistically it's
-    // much easier to do here though.
-    VectorType x_with_externals(0, ncols);
-    waxpby(one, x, zero, x, x_with_externals);
-    exchange_externals(A, x_with_externals);
     // if we're at the last iteration we definitely want to see what
-    // the solution is looking like
+    // the solution is looking like.
     Catalyst::coprocess(spacing, mesh.global_box, mesh.local_box, x.coefs,
                         k, static_cast<double>(k), k==max_iter);
 #else
