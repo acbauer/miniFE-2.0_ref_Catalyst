@@ -34,12 +34,65 @@ namespace Catalyst
 
   void initialize(miniFE::Parameters& params)
   {
+    if(Processor == NULL)
+      {
+      // Create the main interface object to use Catalyst and initialize it.
+      Processor = vtkCPProcessor::New();
+      Processor->Initialize();
+      }
+    else
+      {
+      cout << "  Processor not Null, unexpected, but remove pipelines\n";
+      Processor->RemoveAllPipelines();
+      }
+    // The definition of params is in utils/Parameters.hpp. For in situ it has
+    // a vector of strings which store the file names of the Catalyst
+    // Python script pipelines.
+    for(std::vector<std::string>::const_iterator it=params.script_names.begin();
+        it!=params.script_names.end();it++)
+      {
+      vtkCPPythonScriptPipeline* pipeline = vtkCPPythonScriptPipeline::New();
+      pipeline->Initialize(it->c_str());
+      Processor->AddPipeline(pipeline);
+      // We need to call Delete() on pipeline since we have both a local
+      // reference to it and Processor stores a reference to it. After we
+      // call Delete() only Processor will have a reference to it.
+      pipeline->Delete();
+      }
   }
 
   void coprocess(const double spacing[3], const Box& global_box, const Box& local_box,
                  std::vector<double>& minifepointdata, int time_step,
                  double time, bool force_output)
   {
+    // We can use a vtkSmartPointer to keep track of local VTK objects
+    // and their reference counting automatically. On construction of
+    // dataDescription the reference count of the VTK object is 1 and
+    // when we leave the local scope then it will automatically call
+    // Delete() on the VTK object. This is useful when there are multiple
+    // return points in a method.
+    // Here we need to create a dataDescription which specifies what
+    // time step and time the simulation is at.
+    vtkSmartPointer<vtkCPDataDescription> dataDescription =
+      vtkSmartPointer<vtkCPDataDescription>::New();
+    // We could have multiple grid inputs to Catalyst but generally there is
+    // only a single input grid which by convenction we'll refer to as "input".
+    // If there are multiple inputs (e.g. a "solid" grid and a "fluid" grid
+    // for fluid-structure interaction simulations we would add in each of
+    // those inputs here.
+    dataDescription->AddInput("input");
+    dataDescription->SetTimeData(time, time_step);
+
+    // If the simulation knows something important is happening (e.g. the last
+    // step) it can force all of the pipelines to execute with dataDescription.
+    dataDescription->SetForceOutput(force_output);
+
+    // Check if we need to do any co-processing for this call before we
+    // actually do any real work.
+    if(Processor->RequestDataDescription(dataDescription) == 0)
+      {
+      return; // no co-processing to be done this time step.
+      }
 
 
     // vtkpointdata is the point data array that stores the information in the

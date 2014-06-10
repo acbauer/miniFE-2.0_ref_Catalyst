@@ -34,6 +34,31 @@ namespace Catalyst
 
   void initialize(miniFE::Parameters& params)
   {
+    if(Processor == NULL)
+      {
+      // Create the main interface object to use Catalyst and initialize it.
+      Processor = vtkCPProcessor::New();
+      Processor->Initialize();
+      }
+    else
+      {
+      cout << "  Processor not Null, unexpected, but remove pipelines\n";
+      Processor->RemoveAllPipelines();
+      }
+    // The definition of params is in utils/Parameters.hpp. For in situ it has
+    // a vector of strings which store the file names of the Catalyst
+    // Python script pipelines.
+    for(std::vector<std::string>::const_iterator it=params.script_names.begin();
+        it!=params.script_names.end();it++)
+      {
+      vtkCPPythonScriptPipeline* pipeline = vtkCPPythonScriptPipeline::New();
+      pipeline->Initialize(it->c_str());
+      Processor->AddPipeline(pipeline);
+      // We need to call Delete() on pipeline since we have both a local
+      // reference to it and Processor stores a reference to it. After we
+      // call Delete() only Processor will have a reference to it.
+      pipeline->Delete();
+      }
   }
 
   void coprocess(const double spacing[3], const Box& global_box, const Box& local_box,

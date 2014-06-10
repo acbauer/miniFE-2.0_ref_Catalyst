@@ -3,7 +3,7 @@ except: from paraview.simple import *
 
 from paraview import coprocessing
 
-
+outputfrequency = 1
 #--------------------------------------------------------------
 # Code generated from cpstate.py to create the CoProcessor.
 
@@ -14,24 +14,21 @@ def CreateCoProcessor():
   def _CreatePipeline(coprocessor, datadescription):
     class Pipeline:
       adaptorinput = coprocessor.CreateProducer( datadescription, "input" )
-      ProcessIdScalars()
-      PointDatatoCellData1 = PointDatatoCellData()
-      PointDatatoCellData1.PassPointData = 1
       grid = adaptorinput.GetClientSideObject().GetOutputDataObject(0)
       if  grid.IsA('vtkImageData') or grid.IsA('vtkUniformGrid'):
-        writer = coprocessor.CreateWriter( XMLPImageDataWriter, "filename_%t.pvti", 1 )
+        writer = coprocessor.CreateWriter( XMLPImageDataWriter, "filename_%t.pvti", outputfrequency )
       elif  grid.IsA('vtkRectilinearGrid'):
-        writer = coprocessor.CreateWriter( XMLPRectilinearGridWriter, "filename_%t.pvtr", 1 )
+        writer = coprocessor.CreateWriter( XMLPRectilinearGridWriter, "filename_%t.pvtr", outputfrequency )
       elif  grid.IsA('vtkStructuredGrid'):
-        writer = coprocessor.CreateWriter( XMLPStructuredGridWriter, "filename_%t.pvts", 1 )
+        writer = coprocessor.CreateWriter( XMLPStructuredGridWriter, "filename_%t.pvts", outputfrequency )
       elif  grid.IsA('vtkPolyData'):
-        writer = coprocessor.CreateWriter( XMLPPolyDataWriter, "filename_%t.pvtp", 1 )
+        writer = coprocessor.CreateWriter( XMLPPolyDataWriter, "filename_%t.pvtp", outputfrequency )
       elif  grid.IsA('vtkUnstructuredGrid'):
-        writer = coprocessor.CreateWriter( XMLPUnstructuredGridWriter, "filename_%t.pvtu", 1 )
+        writer = coprocessor.CreateWriter( XMLPUnstructuredGridWriter, "filename_%t.pvtu", outputfrequency )
       elif  grid.IsA('vtkUniformGridAMR'):
-        writer = coprocessor.CreateWriter( XMLHierarchicalBoxDataWriter, "filename_%t.vthb", 1 )
+        writer = coprocessor.CreateWriter( XMLHierarchicalBoxDataWriter, "filename_%t.vthb", outputfrequency )
       elif  grid.IsA('vtkMultiBlockDataSet'):
-        writer = coprocessor.CreateWriter( XMLMultiBlockDataWriter, "filename_%t.vtm", 1 )
+        writer = coprocessor.CreateWriter( XMLMultiBlockDataWriter, "filename_%t.vtm", outputfrequency )
       else:
         print "Don't know how to create a writer for a ", grid.GetClassName()
 
@@ -42,7 +39,7 @@ def CreateCoProcessor():
       self.Pipeline = _CreatePipeline(self, datadescription)
 
   coprocessor = CoProcessor()
-  freqs = {'input': [1]}
+  freqs = {'input': [outputfrequency]}
   coprocessor.SetUpdateFrequencies(freqs)
   return coprocessor
 
@@ -55,7 +52,7 @@ coprocessor = CreateCoProcessor()
 
 #--------------------------------------------------------------
 # Enable Live-Visualizaton with ParaView
-coprocessor.EnableLiveVisualization(False)
+coprocessor.EnableLiveVisualization(True)
 
 
 # ---------------------- Data Selection method ----------------------
