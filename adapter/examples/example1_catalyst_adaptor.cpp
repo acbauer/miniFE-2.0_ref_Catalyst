@@ -73,10 +73,16 @@ namespace Catalyst
     std::vector<double> vtkpointdata;
     getlocalpointarray(global_box, local_box, minifepointdata, vtkpointdata);
 
- }
+  }
 
   void finalize()
   {
+    if(Processor)
+      {
+      Processor->Finalize();
+      Processor->Delete();
+      Processor = NULL;
+      }
   }
 
   void getlocalpointarray(const Box& global_box, const Box& local_box,
