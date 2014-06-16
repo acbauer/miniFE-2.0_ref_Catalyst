@@ -111,6 +111,18 @@ namespace Catalyst
     // for miniFE and by convention we've named it "input".
     dataDescription->GetInputDescriptionByName("input")->SetGrid(grid.GetPointer());
 
+    // We have to tell Catalyst the extent of the entire grid for topologically
+    // structured grids.
+    int wholeExtent[6] = {global_box[0][0],
+                          global_box[0][1],
+                          global_box[1][0],
+                          global_box[1][1],
+                          global_box[2][0],
+                          global_box[2][1]};
+
+    // This whole extent is for the "input" grid.
+    dataDescription->GetInputDescriptionByName("input")->SetWholeExtent(wholeExtent);
+
     // vtkpointdata is the point data array that stores the information in the
     // same order as we expect for our VTK ordering of the grid. We compute
     // it in getlocalpointarray();
@@ -137,18 +149,7 @@ namespace Catalyst
     // Associate the point data with the grid.
     grid->GetPointData()->AddArray(myDataArray);
 
-    // We have to tell Catalyst the extent of the entire grid for topologically
-    // structured grids.
-    int wholeExtent[6] = {global_box[0][0],
-                          global_box[0][1],
-                          global_box[1][0],
-                          global_box[1][1],
-                          global_box[2][0],
-                          global_box[2][1]};
-
-    // This whole extent is for the "input" grid.
-    dataDescription->GetInputDescriptionByName("input")->SetWholeExtent(wholeExtent);
-    // Let Catalyst do the desired in situ analysis and visualization.
+     // Let Catalyst do the desired in situ analysis and visualization.
     Processor->CoProcess(dataDescription);
   }
 
