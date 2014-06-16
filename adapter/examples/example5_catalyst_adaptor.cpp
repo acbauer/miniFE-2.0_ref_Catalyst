@@ -1,16 +1,17 @@
 #include "catalyst_adapter.hpp"
 
 // VTK/ParaView header files
+#include <vtkCellType.h>
 #include <vtkCPDataDescription.h>
 #include <vtkCPInputDataDescription.h>
 #include <vtkCPProcessor.h>
 #include <vtkCPPythonScriptPipeline.h>
 #include <vtkDoubleArray.h>
-#include <vtkImageData.h>
 #include <vtkMultiProcessController.h>
 #include <vtkNew.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
+#include <vtkUnstructuredGrid.h>
 
 // miniFE header files
 #include "Box.hpp"
@@ -28,9 +29,12 @@ namespace {
 
 namespace Catalyst
 {
+  // Some helper methods for working with miniFE data structures.
+  void getpointcoordinate(const int indices[3], const double spacing[3], double coord[3]);
   void getlocalpointarray(const Box& global_box, const Box& local_box,
                           std::vector<double>& minifepointdata,
                           std::vector<double>& vtkpointdata);
+  void getcellpointids(const Box& local_box, const int indices[3], vtkIdType pointids[8]);
 
   void initialize(miniFE::Parameters& params)
   {
@@ -96,7 +100,56 @@ namespace Catalyst
 
     // Similar to vtkSmartPointer but when we want to pass the pointer
     // to another method we have to use grid.GetPointer().
-    vtkNew<vtkImageData> grid;
+    vtkNew<vtkUnstructuredGrid> grid;
+    grid->Initialize();
+    vtkNew<vtkPoints> points;
+    // Specify how much memory to pre-allocate for the points. We can extend
+    // the array but this prevents a bunch of allocs, copies and deletes.
+    points->SetNumberOfPoints( (local_box[0][1]-local_box[0][0]+1) *
+                               (local_box[1][1]-local_box[1][0]+1) *
+                               (local_box[2][1]-local_box[2][0]+1) );
+    double coord[3];
+    int indices[3];
+    vtkIdType id=0;
+    for(int iz=local_box[2][0]; iz<=local_box[2][1]; ++iz)
+      {
+      indices[2] = iz;
+      for(int iy=local_box[1][0]; iy<=local_box[1][1]; ++iy)
+        {
+        indices[1] = iy;
+        for(int ix=local_box[0][0]; ix<=local_box[0][1]; ++ix)
+          {
+          indices[0] = ix;
+          getpointcoordinate(indices, spacing, coord);
+          points->SetPoint(id, coord);
+          id++;
+          }
+        }
+      }
+    grid->SetPoints(points.GetPointer());
+
+    // We have the points set up so now we need to create the cells.
+    // Specify how much memory to pre-allocate for the cells. We can extend
+    // the array but this prevents a bunch of allocs, copies and deletes.
+    grid->Allocate( (local_box[0][1]-local_box[0][0]) *
+                      (local_box[1][1]-local_box[1][0]) *
+                      (local_box[2][1]-local_box[2][0]) );
+    vtkIdType pointids[8];
+    for(int iz=local_box[2][0]; iz<local_box[2][1]; ++iz)
+      {
+      indices[2] = iz;
+      for(int iy=local_box[1][0]; iy<local_box[1][1]; ++iy)
+        {
+        indices[1] = iy;
+        for(int ix=local_box[0][0]; ix<local_box[0][1]; ++ix)
+          {
+          indices[0] = ix;
+          getcellpointids(local_box, indices, pointids);
+          // Cell type definitions (e.g. VTK_HEXAHEDRON) are in vtkCellType.h
+          grid->InsertNextCell(VTK_HEXAHEDRON, 8, pointids);
+          }
+        }
+      }
 
     // grid is from vtkNew<> so we need to pass the pointer to its
     // object with the GetPointer() method. We only have one input grid
@@ -194,5 +247,28 @@ namespace Catalyst
       }
     // We're done creating the local point data array. Now we move on to creating
     // VTK objects.
+  }
+
+  void getpointcoordinate(const int indices[3], const double spacing[3], double coord[3])
+  {
+    for(int i=0;i<3;i++)
+      {
+        coord[i] = spacing[i]*indices[i];
+      }
+  }
+
+  void getcellpointids(const Box& local_box, const int indices[3], vtkIdType pointids[8])
+  {
+    pointids[0] = indices[0] - local_box[0][0] +
+      indices[1]*(local_box[0][1]-local_box[0][0]+1) +
+      indices[2]*(local_box[0][1]-local_box[0][0]+1)*(local_box[1][1]-local_box[1][0]+1);
+    pointids[1] = pointids[0] + 1;
+    pointids[2] = pointids[1] + local_box[0][1] - local_box[0][0] + 1;
+    pointids[3] = pointids[2] - 1;
+    for(int i=0;i<4;i++)
+      {
+      pointids[i+4] = pointids[i] +
+        (local_box[0][1]-local_box[0][0]+1)*(local_box[1][1]-local_box[1][0]+1);
+      }
   }
 }
