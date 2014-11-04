@@ -12,8 +12,10 @@ UTIL_OBJS = \
 MAIN_OBJ = \
 	main.o
 
+current_dir := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
 LIBS = \
-        ../adapter_build/libCatalystMiniFERefAdaptor.so -Wl,-rpath,../adapter_build/ -Wl,-rpath-link,../adapter_build/
+        $(current_dir)/../adapter_build/libCatalystMiniFERefAdaptor.so -Wl,-rpath,$(current_dir)/../adapter_build/ -Wl,-rpath-link,$(current_dir)/../adapter_build/
 
 MINIFE_INFO = 1
 MINIFE_KERNELS = 0
