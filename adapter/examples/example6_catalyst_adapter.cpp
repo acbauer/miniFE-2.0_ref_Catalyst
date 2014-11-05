@@ -1,17 +1,16 @@
 #include "catalyst_adapter.hpp"
 
 // VTK/ParaView header files
-#include <vtkCellType.h>
 #include <vtkCPDataDescription.h>
 #include <vtkCPInputDataDescription.h>
 #include <vtkCPProcessor.h>
 #include <vtkCPPythonScriptPipeline.h>
 #include <vtkDoubleArray.h>
+#include <vtkImageData.h>
 #include <vtkMultiProcessController.h>
 #include <vtkNew.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
-#include <vtkUnstructuredGrid.h>
 
 // miniFE header files
 #include "Box.hpp"
@@ -29,15 +28,14 @@ namespace {
 
 namespace Catalyst
 {
-  // Some helper methods for working with miniFE data structures.
-  void getpointcoordinate(const int indices[3], const double spacing[3], double coord[3]);
   void getlocalpointarray(const Box& global_box, const Box& local_box,
                           std::vector<double>& minifepointdata,
                           std::vector<double>& vtkpointdata);
-  void getcellpointids(const Box& local_box, const int indices[3], vtkIdType pointids[8]);
 
   void initialize(miniFE::Parameters& params)
   {
+    cout << "catalyst_adapter.cpp: initializing Catalyst\n";
+
     if(Processor == NULL)
       {
       // Create the main interface object to use Catalyst and initialize it.
@@ -55,6 +53,8 @@ namespace Catalyst
     for(std::vector<std::string>::const_iterator it=params.script_names.begin();
         it!=params.script_names.end();it++)
       {
+      cout << "catalyst_adapter.cpp: adding a script: " << *it << endl;
+
       vtkCPPythonScriptPipeline* pipeline = vtkCPPythonScriptPipeline::New();
       pipeline->Initialize(it->c_str());
       Processor->AddPipeline(pipeline);
@@ -69,6 +69,8 @@ namespace Catalyst
                  std::vector<double>& minifepointdata, int time_step,
                  double time, bool force_output)
   {
+    cout << "catalyst_adapter.cpp: checking for co-processing in Catalyst\n";
+
     // We can use a vtkSmartPointer to keep track of local VTK objects
     // and their reference counting automatically. On construction of
     // dataDescription the reference count of the VTK object is 1 and
@@ -95,66 +97,39 @@ namespace Catalyst
     // actually do any real work.
     if(Processor->RequestDataDescription(dataDescription) == 0)
       {
+      cout << "catalyst_adapter.cpp: NOT doing co-processing in Catalyst\n";
       return; // no co-processing to be done this time step.
       }
+    cout << "catalyst_adapter.cpp: doing co-processing in Catalyst\n";
 
     // Similar to vtkSmartPointer but when we want to pass the pointer
     // to another method we have to use grid.GetPointer().
-    vtkNew<vtkUnstructuredGrid> grid;
-    grid->Initialize();
-    vtkNew<vtkPoints> points;
-    // Specify how much memory to pre-allocate for the points. We can extend
-    // the array but this prevents a bunch of allocs, copies and deletes.
-    points->SetNumberOfPoints( (local_box[0][1]-local_box[0][0]+1) *
-                               (local_box[1][1]-local_box[1][0]+1) *
-                               (local_box[2][1]-local_box[2][0]+1) );
-    double coord[3];
-    int indices[3];
-    vtkIdType id=0;
-    for(int iz=local_box[2][0]; iz<=local_box[2][1]; ++iz)
-      {
-      indices[2] = iz;
-      for(int iy=local_box[1][0]; iy<=local_box[1][1]; ++iy)
-        {
-        indices[1] = iy;
-        for(int ix=local_box[0][0]; ix<=local_box[0][1]; ++ix)
-          {
-          indices[0] = ix;
-          getpointcoordinate(indices, spacing, coord);
-          points->SetPoint(id, coord);
-          id++;
-          }
-        }
-      }
-    grid->SetPoints(points.GetPointer());
+    vtkNew<vtkImageData> grid;
 
-    // We have the points set up so now we need to create the cells.
-    // Specify how much memory to pre-allocate for the cells. We can extend
-    // the array but this prevents a bunch of allocs, copies and deletes.
-    grid->Allocate( (local_box[0][1]-local_box[0][0]) *
-                      (local_box[1][1]-local_box[1][0]) *
-                      (local_box[2][1]-local_box[2][0]) );
-    vtkIdType pointids[8];
-    for(int iz=local_box[2][0]; iz<local_box[2][1]; ++iz)
-      {
-      indices[2] = iz;
-      for(int iy=local_box[1][0]; iy<local_box[1][1]; ++iy)
-        {
-        indices[1] = iy;
-        for(int ix=local_box[0][0]; ix<local_box[0][1]; ++ix)
-          {
-          indices[0] = ix;
-          getcellpointids(local_box, indices, pointids);
-          // Cell type definitions (e.g. VTK_HEXAHEDRON) are in vtkCellType.h
-          grid->InsertNextCell(VTK_HEXAHEDRON, 8, pointids);
-          }
-        }
-      }
+    // The local part of the grid that this process has. There aren't any
+    // ghost cells.
+    int extent[6] = {local_box[0][0], local_box[0][1], local_box[1][0],
+                     local_box[1][1], local_box[2][0], local_box[2][1]};
+    grid->SetExtent(extent);
+    grid->SetSpacing(spacing[0], spacing[1], spacing[2]);
+    grid->SetOrigin(0, 0, 0);
 
     // grid is from vtkNew<> so we need to pass the pointer to its
     // object with the GetPointer() method. We only have one input grid
     // for miniFE and by convention we've named it "input".
     dataDescription->GetInputDescriptionByName("input")->SetGrid(grid.GetPointer());
+
+    // We have to tell Catalyst the extent of the entire grid for topologically
+    // structured grids.
+    int wholeExtent[6] = {global_box[0][0],
+                          global_box[0][1],
+                          global_box[1][0],
+                          global_box[1][1],
+                          global_box[2][0],
+                          global_box[2][1]};
+
+    // This whole extent is for the "input" grid.
+    dataDescription->GetInputDescriptionByName("input")->SetWholeExtent(wholeExtent);
 
     // vtkpointdata is the point data array that stores the information in the
     // same order as we expect for our VTK ordering of the grid. We compute
@@ -162,12 +137,34 @@ namespace Catalyst
     std::vector<double> vtkpointdata;
     getlocalpointarray(global_box, local_box, minifepointdata, vtkpointdata);
 
+    // Create the VTK point data array.
+    vtkSmartPointer<vtkDoubleArray> myDataArray =
+      vtkSmartPointer<vtkDoubleArray>::New();
+    myDataArray->SetNumberOfComponents(1);
+    myDataArray->SetName("myData");
+    // We have the data already stored in the way we want it so we can
+    // use that memory directly. VTK will not modify it.
+    myDataArray->SetArray(&(vtkpointdata[0]), vtkpointdata.size(), 1);
+
+    if(vtkpointdata.size() != grid->GetNumberOfPoints())
+      {
+      int myproc;
+      MPI_Comm_rank(MPI_COMM_WORLD, &myproc);
+      cout << myproc << " WRONG -- in data is too small " << vtkpointdata.size()
+           << " but should be " << grid->GetNumberOfPoints() << endl;;
+      }
+
+    // Associate the point data with the grid.
+    grid->GetPointData()->AddArray(myDataArray);
+
      // Let Catalyst do the desired in situ analysis and visualization.
     Processor->CoProcess(dataDescription);
   }
 
   void finalize()
   {
+    cout << "catalyst_adapter.cpp: finalizing Catalyst\n";
+
     if(Processor)
       {
       Processor->Finalize();
@@ -247,28 +244,5 @@ namespace Catalyst
       }
     // We're done creating the local point data array. Now we move on to creating
     // VTK objects.
-  }
-
-  void getpointcoordinate(const int indices[3], const double spacing[3], double coord[3])
-  {
-    for(int i=0;i<3;i++)
-      {
-        coord[i] = spacing[i]*indices[i];
-      }
-  }
-
-  void getcellpointids(const Box& local_box, const int indices[3], vtkIdType pointids[8])
-  {
-    pointids[0] = indices[0] - local_box[0][0] +
-      indices[1]*(local_box[0][1]-local_box[0][0]+1) +
-      indices[2]*(local_box[0][1]-local_box[0][0]+1)*(local_box[1][1]-local_box[1][0]+1);
-    pointids[1] = pointids[0] + 1;
-    pointids[2] = pointids[1] + local_box[0][1] - local_box[0][0] + 1;
-    pointids[3] = pointids[2] - 1;
-    for(int i=0;i<4;i++)
-      {
-      pointids[i+4] = pointids[i] +
-        (local_box[0][1]-local_box[0][0]+1)*(local_box[1][1]-local_box[1][0]+1);
-      }
   }
 }

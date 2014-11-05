@@ -34,13 +34,14 @@ namespace Catalyst
 
   void initialize(miniFE::Parameters& params)
   {
+    cout << "catalyst_adapter.cpp: initializing Catalyst\n";
   }
 
   void coprocess(const double spacing[3], const Box& global_box, const Box& local_box,
                  std::vector<double>& minifepointdata, int time_step,
                  double time, bool force_output)
   {
-
+    cout << "catalyst_adapter.cpp: co-processing in Catalyst\n";
 
     // vtkpointdata is the point data array that stores the information in the
     // same order as we expect for our VTK ordering of the grid. We compute
@@ -52,6 +53,7 @@ namespace Catalyst
 
   void finalize()
   {
+    cout << "catalyst_adapter.cpp: finalizing Catalyst\n";
   }
 
   void getlocalpointarray(const Box& global_box, const Box& local_box,
