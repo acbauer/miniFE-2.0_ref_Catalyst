@@ -126,7 +126,7 @@ namespace Catalyst
     // use that memory directly. VTK will not modify it.
     myDataArray->SetArray(&(vtkpointdata[0]), vtkpointdata.size(), 1);
 
-    if(vtkpointdata.size() != grid->GetNumberOfPoints())
+    if(static_cast<vtkIdType>(vtkpointdata.size()) != grid->GetNumberOfPoints())
       {
       int myproc;
       MPI_Comm_rank(MPI_COMM_WORLD, &myproc);
